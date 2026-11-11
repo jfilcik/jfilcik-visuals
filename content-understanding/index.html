@@ -67,6 +67,7 @@ table{border-collapse:collapse;font-size:14px;width:100%;margin-top:12px}th,td{t
 <option value="textGenerate" data-modality="Text">Text: Field generation</option>
 <option value="speechClassify" data-modality="Speech">Speech: Field classification</option>
 <option value="speechGenerate" data-modality="Speech">Speech: Field generation</option>
+<option value="videoHeadline" data-modality="Video">Video: Headline field generation</option>
 <option value="videoA" data-modality="Video">Video: Field generation — Long-video segmentation</option>
 <option value="videoB" data-modality="Video">Video: Field generation — Short-video ads</option>
 </select></label>
@@ -94,6 +95,7 @@ table{border-collapse:collapse;font-size:14px;width:100%;margin-top:12px}th,td{t
 <p>Document token expense is relative to GPT-6.1 Sol with Schema only (1.00×), calculated from measured input/output token usage and the evaluation's rates. It excludes service processing, embeddings, training and other charges; it isn't a current price quote.</p>
 <p>Create an analyzer with a schema alone, or add documents to its knowledge base and label the expected answers. This evaluation compares Schema only and With 5 labeled examples.</p>
 <p>Task names follow the public <a href="https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/overview#key-components-of-content-understanding">field methods</a> and <a href="https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/concepts/classifier">segmentation</a> terminology. Speech measures fields from audio, not transcription. Graphs show GA evaluation averages.</p>
+<p>Video compares nine models across different execution cohorts, not a controlled model-only experiment or every historical model. Headline Generation F1 is a separate aggregate across the two video datasets. Video whiskers show mean ± one standard deviation (SD), in percentage points, not confidence intervals or proof of a statistically significant difference. No video token expense, cost or latency is paired with these scores.</p>
 </details>
 </main>
 <script id="benchmark-data" type="application/json">
@@ -114,8 +116,9 @@ table{border-collapse:collapse;font-size:14px;width:100%;margin-top:12px}th,td{t
     "textGenerate": {"title":"Text: Field generation","metric":"Rubric score (1–7)","ga":[6.499,6.434,6.497,6.399,6.439,6.438,6.394,6.570,6.560],"note":"Generate-method fields on native text, five repeats per model; rubric scores are not percentages of correct answers."},
     "speechClassify": {"title":"Speech: Field classification","metric":"Classify F1 (%)","ga":[76.3,76.2,71.7,71.1,75.3,75.1,74.5,74.7,73.7],"note":"Classify-method fields from audio. Not transcription accuracy, word error rate or speaker recognition."},
     "speechGenerate": {"title":"Speech: Field generation","metric":"Generation F1 (%)","ga":[98.1,98.3,96,94.5,95.3,95.6,94.6,96.6,94.9],"note":"Generate-method fields from audio. Uses F1, not the text generation rubric or transcription accuracy."},
-    "videoA": {"title":"Video: Field generation — Long-video segmentation","subtitle":"GA evaluation · segmentation-focused, 60-minute videos","metric":"Generation F1 (%)","ga":[74.7,72.8,73.5,74.3,73.8,80.1,73,69.9,65.8],"note":"Generation F1 covers scalar answers and timestamped custom segments, such as logo appearances, news segments or ad breaks. This dataset keeps its own score and runtime/cost population. Different clip lengths, frame density or schemas without segmentation can change the ranking."},
-    "videoB": {"title":"Video: Field generation — Short-video ads","subtitle":"GA evaluation · whole-video ads averaging just under one minute","metric":"Generation F1 (%)","ga":[92.7,93.5,93.2,92.3,93.2,92.7,91.2,93,93.6],"note":"Generation F1 covers scalar answers and timestamped custom segments, such as logo appearances or ad breaks. This dataset keeps its own score and runtime/cost population. Different clip lengths, frame density or schemas without segmentation can change the ranking."}
+    "videoHeadline": {"title":"Video: Headline field generation","subtitle":"GA evaluation · aggregate across the long- and short-video datasets","metric":"Generation F1 (%)","ga":[83.7,83.3,83.4,83.3,83.5,86.4,82.1,81.5,79.7],"sd":[1.2,0.6,0.6,0.9,1.4,0.7,1,1.1,0.7],"note":"Headline Generation F1 averages the two dataset scores within each repeat, then summarizes repeats. It is not either dataset's individual score. Generation F1 includes scalar-answer matching and timestamped custom-segment fields. Compare the long- and short-video views separately before selecting a model."},
+    "videoA": {"title":"Video: Field generation — Long-video segmentation","subtitle":"GA evaluation · segmentation-focused, 60-minute videos","metric":"Generation F1 (%)","ga":[74.7,72.8,73.5,74.3,73.8,80.1,73,69.9,65.8],"sd":[1.6,1.1,0.7,1.7,2.9,1.2,1.8,1.8,1.6],"note":"This workload evaluates custom segments and segment information on long videos. Generation F1 includes timestamped custom-segment fields; it is not the document Segment F1 metric. Different clip lengths, frame density or schemas can change the ranking."},
+    "videoB": {"title":"Video: Field generation — Short-video ads","subtitle":"GA evaluation · whole-video ads averaging just under one minute","metric":"Generation F1 (%)","ga":[92.7,93.5,93.2,92.3,93.2,92.7,91.2,93,93.6],"sd":[0.9,0.6,0.7,0.6,0.8,0.5,0.9,0.7,0.4],"note":"This workload evaluates whole-video ad fields, including brand information. Its Generation F1 is separate from the long-video score and the headline aggregate. The highest observed mean is only 0.10 percentage points above GPT-5.5; this does not establish a statistically significant advantage."}
   }
 }
 </script>
@@ -151,8 +154,9 @@ function inspect(i){
  const isExtract=$("task").value==="extract";
  const task=$("task").value,context=DATA.tasks[task]?.subtitle?
  `<p class="hint">${escapeText(DATA.tasks[task].title)}</p>`:"";
- $("detail").innerHTML=context+`<h3>${escapeText(DATA.models[i])}</h3>`+rows.map(p=>
+ $("detail").innerHTML=context+(rows[0].sd!==undefined?'<p class="hint">Selected model, not necessarily the highest-scoring model</p>':"")+`<h3>${escapeText(DATA.models[i])}</h3>`+rows.map(p=>
  `<div class="readout"><p class="readout-row"><span>${isExtract?seriesLabel(p.shot):escapeText(p.metric)}</span><strong>${number(p.score)}${p.metric.includes("(%)")?"%":""}</strong></p>`+
+ (p.sd!==undefined?`<p class="readout-row"><span>Standard deviation</span><strong>± ${number(p.sd)} pp</strong></p>`:"")+
  (isExtract?`<p class="readout-row"><span>Token expense</span><strong>${expense(p.cost)}</strong></p>`:"")+"</div>"
  ).join("")+(isExtract?'<p class="hint">Token expense vs Sol, Schema only (1.00×).</p>':"");
 }
@@ -161,7 +165,7 @@ function drawPlot(width){
  const metric=isExtract?"LLM match (%)":spec.metric;
  const measured=document.querySelector(".plot-wrap").clientWidth;
  const w=width??(measured||740),compact=w<500,h=isExtract?(compact?400:460):540;
- const left=isExtract?(compact?42:62):(compact?112:154),right=isExtract?22:54,top=36,bottom=compact?78:72;
+ const left=isExtract?(compact?42:62):(compact?112:154),right=isExtract?22:(spec.sd&&!compact?126:54),top=36,bottom=compact?78:72;
  $("chart").setAttribute("viewBox",`0 0 ${w} ${h}`);
  const pw=w-left-right,ph=h-top-bottom;
  let svg=`<title id="plot-title">${escapeText($("chart-title").textContent)}</title><desc id="plot-desc">${escapeText($("chart-subtitle").textContent)}. ${escapeText($("caveat").textContent)} ${escapeText($("interaction-hint").textContent)}</desc>`;
@@ -182,7 +186,11 @@ function drawPlot(width){
   const ticks=rubric?(compact?[1,4,7]:[1,2,3,4,5,6,7]):(compact?[xmin,(xmin+100)/2,100]:Array.from({length:6},(_,i)=>xmin+i*(100-xmin)/5));
   ticks.forEach(t=>{svg+=`<line x1="${x(t)}" y1="${top}" x2="${x(t)}" y2="${h-bottom}" stroke="#e0e8ee"/><text x="${x(t)}" y="${h-bottom+24}" text-anchor="middle">${t}</text>`});
   current.forEach((p,j)=>{
-   const labels=`<text x="${left-12}" y="${y(j)+5}" text-anchor="end">${escapeText(DATA.models[p.i])}</text><text x="${w-4}" y="${y(j)+5}" text-anchor="end">${number(p.score)}</text>`;
+   if(p.sd!==undefined){
+    const lo=x(p.score-p.sd),hi=x(p.score+p.sd),cy=y(j);
+    svg+=`<g aria-hidden="true" stroke="${colors[p.i]}" stroke-width="2"><line x1="${lo}" y1="${cy}" x2="${hi}" y2="${cy}"/><line x1="${lo}" y1="${cy-5}" x2="${lo}" y2="${cy+5}"/><line x1="${hi}" y1="${cy-5}" x2="${hi}" y2="${cy+5}"/></g>`;
+   }
+   const labels=`<text x="${left-12}" y="${y(j)+5}" text-anchor="end">${escapeText(DATA.models[p.i])}</text><text x="${w-4}" y="${y(j)+5}" text-anchor="end">${number(p.score)}${p.sd!==undefined&&!compact?` ± ${number(p.sd)}`:""}</text>`;
    svg+=point(p,x(p.score),y(j),false,labels,w);
   });
   svg+=`<text x="${w/2}" y="${h-29}" text-anchor="middle">${escapeText(metric)}</text><text x="${w/2}" y="${h-10}" text-anchor="middle">Higher is better</text>`;
@@ -199,7 +207,7 @@ function bindInspection(node){
 function render(){
  const task=$("task").value,isExtract=task==="extract",spec=isExtract?null:DATA.tasks[task];
  const metric=isExtract?"LLM match (%)":spec.metric;
- current=isExtract?DATA.extract.ga.scores.flatMap((scores,shot)=>scores.map((score,i)=>({i,shot,score,cost:tokenCost(shot,i),metric}))):spec.ga.map((score,i)=>({i,score,cost:null,metric}));
+ current=isExtract?DATA.extract.ga.scores.flatMap((scores,shot)=>scores.map((score,i)=>({i,shot,score,cost:tokenCost(shot,i),metric}))):spec.ga.map((score,i)=>({i,score,...(spec.sd?{sd:spec.sd[i]}:{}),cost:null,metric}));
  $("chart-title").textContent=isExtract?"Document: Field extraction":spec.title;
  $("chart-subtitle").textContent=isExtract?"LLM match and relative token expense":spec.subtitle||"GA evaluation";
  $("series-key").hidden=!isExtract;
@@ -207,16 +215,21 @@ function render(){
  "Hover, tap or focus a point to inspect it. Use the model buttons for closely spaced points. Press Escape to return to the default model.":
  "Hover or tap a model row to inspect it, or use Tab and Enter to select a row. Press Escape to return to the default model.";
  $("caveat").textContent=isExtract?"Token expense vs GPT-6.1 Sol, Schema only (1.00×). Cost axis is logarithmic; quality axis is zoomed.":spec.note;
+ if(spec?.sd){
+  const best=current.reduce((a,b)=>b.score>a.score?b:a);
+  $("interaction-hint").textContent+=` Highest observed mean among these nine models: ${DATA.models[best.i]} (${number(best.score)}%). The detail panel shows the selected model, not necessarily this highest mean.`;
+  $("caveat").textContent+=" Whiskers show ± one standard deviation (SD), in percentage points, not confidence intervals. Results span different execution cohorts, not a controlled model-only comparison or every historical model. No video cost or latency comparison is shown.";
+ }
  $("models").hidden=!isExtract;
  $("models").innerHTML=isExtract?DATA.models.map((model,i)=>`<button type="button" data-model="${i}" aria-pressed="false"><span class="swatch" style="background:${colors[i]}" aria-hidden="true"></span>${i+1}. ${escapeText(model)}</button>`).join(""):"";
  $("models").querySelectorAll("[data-model]").forEach(bindInspection);
- $("data-table").innerHTML=`<table><caption>${escapeText($("chart-title").textContent)} · ${escapeText($("chart-subtitle").textContent)}</caption><thead><tr><th scope="col">Model</th>${isExtract?'<th scope="col">Examples</th>':""}<th scope="col">${escapeText(metric)}</th>${isExtract?'<th scope="col">Token expense vs Sol, Schema only</th>':""}</tr></thead><tbody>`+current.map(p=>`<tr><th scope="row">${escapeText(DATA.models[p.i])}</th>${isExtract?`<td>${seriesLabel(p.shot)}</td>`:""}<td>${number(p.score)}</td>${isExtract?`<td>${expense(p.cost)}</td>`:""}</tr>`).join("")+"</tbody></table>";
+ $("data-table").innerHTML=`<table><caption>${escapeText($("chart-title").textContent)} · ${escapeText($("chart-subtitle").textContent)}</caption><thead><tr><th scope="col">Model</th>${isExtract?'<th scope="col">Examples</th>':""}<th scope="col">${escapeText(metric)}</th>${spec?.sd?'<th scope="col">Standard deviation (± pp)</th>':""}${isExtract?'<th scope="col">Token expense vs Sol, Schema only</th>':""}</tr></thead><tbody>`+current.map(p=>`<tr><th scope="row">${escapeText(DATA.models[p.i])}</th>${isExtract?`<td>${seriesLabel(p.shot)}</td>`:""}<td>${number(p.score)}</td>${p.sd!==undefined?`<td>± ${number(p.sd)}</td>`:""}${isExtract?`<td>${expense(p.cost)}</td>`:""}</tr>`).join("")+"</tbody></table>";
  if(!current.some(p=>p.i===selected))selected=current[0].i;
  drawPlot();
 }
 function point(p,x,y,numbered,labels="",rowWidth=0){
- const label=`${$("chart-title").textContent}, ${DATA.models[p.i]}${numbered?", "+seriesLabel(p.shot):""}, ${number(p.score)} ${p.metric}${p.cost!==null?", token expense "+expense(p.cost)+" relative to Sol, Schema only":""}`;
- const mark=numbered&&p.shot?`<rect x="${x-10}" y="${y-10}" width="20" height="20" rx="2" fill="${colors[p.i]}" stroke="white" stroke-width="2"/>`:`<circle cx="${x}" cy="${y}" r="10" fill="${numbered?"white":colors[p.i]}" stroke="${numbered?colors[p.i]:"white"}" stroke-width="2"/>`;
+ const label=`${$("chart-title").textContent}, ${DATA.models[p.i]}${numbered?", "+seriesLabel(p.shot):""}, ${number(p.score)} ${p.metric}${p.sd!==undefined?`, standard deviation plus or minus ${number(p.sd)} percentage points`:""}${p.cost!==null?", token expense "+expense(p.cost)+" relative to Sol, Schema only":""}`;
+ const mark=numbered&&p.shot?`<rect x="${x-10}" y="${y-10}" width="20" height="20" rx="2" fill="${colors[p.i]}" stroke="white" stroke-width="2"/>`:`<circle cx="${x}" cy="${y}" r="${p.sd!==undefined?4:10}" fill="${numbered?"white":colors[p.i]}" stroke="${numbered?colors[p.i]:"white"}" stroke-width="2"/>`;
  const hit=rowWidth?`<rect class="hit" x="1" y="${y-22}" width="${rowWidth-2}" height="44" rx="3"/>`:`<circle class="hit" cx="${x}" cy="${y}" r="16"/>`;
  return `<g class="point" role="button" tabindex="0" data-model="${p.i}" ${numbered?`data-shot="${p.shot}"`:""} aria-label="${escapeText(label)}" aria-pressed="false"><title>${escapeText(label)}</title>${hit}${mark}${labels}${numbered?`<text x="${x}" y="${y+4}" text-anchor="middle" style="fill:${p.shot?"white":colors[p.i]};font-size:11px;font-weight:700;pointer-events:none">${p.i+1}</text>`:""}</g>`;
 }
@@ -249,14 +262,21 @@ $("download").addEventListener("click",()=>{
   legend.innerHTML='<circle cx="28" cy="547" r="7" fill="white" stroke="#586d7d" stroke-width="2"/><text x="44" y="552" font-size="12">Schema only</text><rect x="200" y="540" width="14" height="14" fill="#586d7d"/><text x="224" y="552" font-size="12">With 5 labeled examples</text><line x1="450" y1="547" x2="478" y2="547" stroke="#586d7d"/><text x="488" y="552" font-size="12">Same model</text>';
   clone.append(legend);
  }
- const notes=isExtract?["Completion-token expense relative to Sol, Schema only (1.00×). Other charges excluded."] : [];
- notes.forEach((note,j)=>{const text=document.createElementNS("http://www.w3.org/2000/svg","text");text.setAttribute("x","20");text.setAttribute("y",String(580+j*20));text.setAttribute("font-size","11");text.textContent=note;clone.append(text)});
+ const video=DATA.tasks[$("task").value]?.sd;
+ const best=video?current.reduce((a,b)=>b.score>a.score?b:a):null;
+ const notes=isExtract?["Completion-token expense relative to Sol, Schema only (1.00×). Other charges excluded."] : video?[
+  "Values and whiskers: mean ± one standard deviation (percentage points), not confidence intervals.",
+  "Nine compared models across different execution cohorts; not a controlled model-only comparison.",
+  `Highest observed mean: ${DATA.models[best.i]} (${number(best.score)}%). Selected model is not necessarily highest.`,
+  "Headline is a separate two-dataset aggregate; no video token expense, cost or latency is shown."
+ ]:[];
+ notes.forEach((note,j)=>{const text=document.createElementNS("http://www.w3.org/2000/svg","text");text.setAttribute("x","20");text.setAttribute("y",String((isExtract?580:560)+j*20));text.setAttribute("font-size","11");text.textContent=note;clone.append(text)});
  clone.querySelectorAll("text").forEach(node=>{
   node.setAttribute("font-family",'"Segoe UI", Arial, sans-serif');
   if(!node.hasAttribute("font-size"))node.setAttribute("font-size","14");
   if(!node.hasAttribute("fill"))node.setAttribute("fill","#465b6b");
  });
- clone.setAttribute("viewBox",`0 0 740 ${isExtract?600:540}`);
+ clone.setAttribute("viewBox",`0 0 740 ${isExtract?600:video?640:540}`);
  const blob=new Blob([new XMLSerializer().serializeToString(clone)],{type:"image/svg+xml"}),url=URL.createObjectURL(blob),a=document.createElement("a");
  a.href=url;a.download=`content-understanding-${$("task").value}-ga.svg`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
